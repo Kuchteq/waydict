@@ -92,6 +92,7 @@ static void xdg_toplevel_close(void *data, struct xdg_toplevel *toplevel)
 {
 	struct client_state *state = data;
 	state->closed = true;
+        exit(EXIT_SUCCESS);
 }
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
 	.configure = xdg_toplevel_configure,
@@ -132,35 +133,6 @@ static const struct wl_registry_listener wl_registry_listener = {
 	.global_remove = registry_global_remove,
 };
 
-static const struct wl_callback_listener wl_surface_frame_listener;
-
-static void wl_surface_frame_done(void *data, struct wl_callback *cb,
-				  uint32_t time)
-{
-	/* Destroy this callback */
-	wl_callback_destroy(cb);
-
-	/* Request another frame */
-	struct client_state *state = data;
-	cb = wl_surface_frame(state->wl_surface);
-	wl_callback_add_listener(cb, &wl_surface_frame_listener, state);
-
-	/* Update scroll amount at 24 pixels per second */
-
-	/* Submit a frame for this event */
-	struct wl_buffer *buffer = draw_frame(state);
-	wl_surface_attach(state->wl_surface, buffer, 0, 0);
-	wl_surface_damage_buffer(state->wl_surface, 0, 0, INT32_MAX, INT32_MAX);
-	wl_surface_commit(state->wl_surface);
-
-	if (state->closed) {
-		exit(EXIT_SUCCESS);
-	}
-}
-
-static const struct wl_callback_listener wl_surface_frame_listener = {
-	.done = wl_surface_frame_done,
-};
 void init_fonts(struct client_state *state)
 {
 	fcft_init(FCFT_LOG_COLORIZE_AUTO, 0, FCFT_LOG_CLASS_DEBUG);
@@ -203,7 +175,6 @@ int main(int argc, char *argv[])
 	wl_surface_set_buffer_scale(state.wl_surface, state.buffer_scale);
 	wl_surface_commit(state.wl_surface);
 	struct wl_callback *cb = wl_surface_frame(state.wl_surface);
-	wl_callback_add_listener(cb, &wl_surface_frame_listener, &state);
 
 	init_fonts(&state);
 	state.curl = curl_easy_init();
@@ -211,6 +182,5 @@ int main(int argc, char *argv[])
 	while (wl_display_dispatch(state.wl_display)) {
 		/* This space deliberately left blank */
 	}
-
 	return 0;
 }

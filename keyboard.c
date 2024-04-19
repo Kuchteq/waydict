@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
+#include "draw.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
@@ -13,8 +14,8 @@
 #include <wayland-client.h>
 #include "xdg-shell-client-protocol.h"
 #include <xkbcommon/xkbcommon.h>
-#include "state.h"
 #include "fetching.h"
+
 
 static void wl_keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
 			       uint32_t format, int32_t fd, uint32_t size)
@@ -42,7 +43,6 @@ static void wl_keyboard_enter(void *data, struct wl_keyboard *wl_keyboard,
 			      struct wl_array *keys)
 {
 	struct client_state *client_state = data;
-	fprintf(stderr, "keyboard enter; keys pressed are:\n");
 	uint32_t *key;
 	wl_array_for_each(key, keys)
 	{
@@ -50,10 +50,8 @@ static void wl_keyboard_enter(void *data, struct wl_keyboard *wl_keyboard,
 		xkb_keysym_t sym = xkb_state_key_get_one_sym(
 			client_state->xkb_state, *key + 8);
 		xkb_keysym_get_name(sym, buf, sizeof(buf));
-		fprintf(stderr, "sym: %-12s (%d), ", buf, sym);
 		xkb_state_key_get_utf8(client_state->xkb_state, *key + 8, buf,
 				       sizeof(buf));
-		fprintf(stderr, "utf8: '%s'\n", buf);
 	}
 }
 
@@ -95,13 +93,16 @@ static void wl_keyboard_key(void *data, struct wl_keyboard *wl_keyboard,
 			}
 		}
 	}
-	fprintf(stderr, "key %s: sym: %-12s (%d), ", action, buf, sym);
-	fprintf(stderr, "utf8: '%s'\n", buf);
+
+        // Rerender the frame
+	struct wl_buffer *buffer = draw_frame(client_state);
+	wl_surface_attach(client_state->wl_surface, buffer, 0, 0);
+	wl_surface_damage_buffer(client_state->wl_surface, 0, 0, INT32_MAX, INT32_MAX);
+	wl_surface_commit(client_state->wl_surface);
 }
 static void wl_keyboard_leave(void *data, struct wl_keyboard *wl_keyboard,
 			      uint32_t serial, struct wl_surface *surface)
 {
-	fprintf(stderr, "keyboard leave\n");
 }
 
 static void wl_keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard,
